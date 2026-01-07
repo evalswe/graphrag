@@ -55,15 +55,16 @@ def get_candidate_text_units(
             neo4j_docs = _get_documents_by_entity_neo4j(first_entity.title)
             if neo4j_docs:
                 # Convert Neo4j documents to TextUnit-like objects
-                # For POC simplicity, create minimal TextUnit objects from Neo4j results
+                # EXPERIMENTAL: Use document text from Neo4j
                 neo4j_text_units = []
                 for doc in neo4j_docs:
                     # Create a TextUnit from Neo4j document data
-                    # Use document title as text for simplicity in POC
+                    # Use document text field (or fallback to source/title)
+                    doc_text = doc.get("text", "") or doc.get("source", "") or doc.get("title", "")
                     text_unit = TextUnit(
                         id=doc.get("id", ""),
                         short_id=doc.get("id", ""),
-                        text=doc.get("title", doc.get("source", "")),
+                        text=doc_text,
                         document_ids=[doc.get("id", "")]
                     )
                     neo4j_text_units.append(text_unit)
