@@ -30,7 +30,7 @@ def _get_documents_by_entity_neo4j(entity_name: str) -> list[dict[str, Any]]:
         Returns empty list if Neo4j is unavailable
     """
     try:
-        from graphrag.graph.neo4j_client import get_documents_by_entity_neo4j as neo4j_func
+        from graphrag.graphrag.graph.neo4j_client import get_documents_by_entity_neo4j as neo4j_func
         return neo4j_func(entity_name)
     except Exception:
         return []

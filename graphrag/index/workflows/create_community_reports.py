@@ -38,6 +38,13 @@ from graphrag.utils.storage import (
 
 logger = logging.getLogger(__name__)
 
+# EXPERIMENTAL: Neo4j integration (feature-flagged)
+try:
+    from graphrag.graphrag.graph.neo4j_client import write_community_reports_to_neo4j
+    NEO4J_AVAILABLE = True
+except ImportError:
+    NEO4J_AVAILABLE = False
+
 
 async def run_workflow(
     config: GraphRagConfig,
@@ -76,6 +83,14 @@ async def run_workflow(
     )
 
     await write_table_to_storage(output, "community_reports", context.output_storage)
+
+    # EXPERIMENTAL: Write to Neo4j if enabled (feature-flagged)
+    if NEO4J_AVAILABLE:
+        try:
+            write_community_reports_to_neo4j(output)
+            logger.info("Neo4j write completed for community reports (experimental)")
+        except Exception as e:
+            logger.warning(f"Neo4j write failed for community reports (non-fatal): {e}")
 
     logger.info("Workflow completed: create_community_reports")
     return WorkflowFunctionOutput(result=output)

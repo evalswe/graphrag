@@ -2,14 +2,17 @@
 # Licensed under the MIT License
 
 """
-Experimental Neo4j client for GraphRAG.
+Experimental Neo4j client for GraphRAG using Cypher queries.
 
-This is a minimal proof of concept to replace 1-2 dataframe-based READ operations
-during query time with Neo4j-backed reads. All Neo4j logic is optional and falls
-back to existing dataframe logic if Neo4j is unavailable or disabled.
+This module provides Neo4j integration for GraphRAG using Cypher/GQL directly.
+It replaces dataframe-based READ operations during query time with Neo4j-backed reads.
+All Neo4j logic is optional and falls back to existing dataframe logic if Neo4j is 
+unavailable or disabled.
 
 EXPERIMENTAL: This module provides Neo4j integration for GraphRAG.
 All functionality is feature-flagged via GRAPHRAG_USE_NEO4J environment variable.
+
+Uses Cypher queries directly - no GraphQL or server components.
 """
 
 import logging
@@ -376,6 +379,576 @@ def write_mentions_to_neo4j(
     except Exception as e:
         logger.warning(f"Error writing mentions to Neo4j: {e}")
         return False
+    finally:
+        if driver is not None:
+            driver.close()
+
+
+def write_communities_to_neo4j(communities: pd.DataFrame) -> bool:
+    """
+    EXPERIMENTAL: Write communities to Neo4j.
+    
+    Writes communities using the schema:
+    - (:Community {id, community, level, parent, children, title, entity_ids, relationship_ids, text_unit_ids, period, size})
+    
+    Parameters
+    ----------
+    communities : pd.DataFrame
+        DataFrame with columns: id, community, level, parent, children, title, entity_ids, relationship_ids, text_unit_ids, period, size
+        
+    Returns
+    -------
+    bool
+        True if successful, False otherwise
+    """
+    if not _is_neo4j_enabled():
+        return False
+    
+    driver = _get_neo4j_driver()
+    if driver is None:
+        return False
+    
+    try:
+        with driver.session() as session:
+            # Create constraint/index for Community.id
+            session.run("CREATE CONSTRAINT community_id IF NOT EXISTS FOR (c:Community) REQUIRE c.id IS UNIQUE")
+            
+            # Batch write communities
+            for _, row in communities.iterrows():
+                community_id = str(row.get("id", ""))
+                community_num = row.get("community", None)
+                level = row.get("level", None)
+                parent = row.get("parent", None)
+                children = row.get("children", []) if isinstance(row.get("children"), list) else []
+                title = str(row.get("title", "")) if pd.notna(row.get("title")) else ""
+                entity_ids = row.get("entity_ids", []) if isinstance(row.get("entity_ids"), list) else []
+                relationship_ids = row.get("relationship_ids", []) if isinstance(row.get("relationship_ids"), list) else []
+                text_unit_ids = row.get("text_unit_ids", []) if isinstance(row.get("text_unit_ids"), list) else []
+                period = str(row.get("period", "")) if pd.notna(row.get("period")) else ""
+                size = row.get("size", None)
+                
+                if not community_id:
+                    continue
+                
+                session.run(
+                    "MERGE (c:Community {id: $id}) "
+                    "SET c.community = $community, c.level = $level, c.parent = $parent, "
+                    "c.children = $children, c.title = $title, c.entity_ids = $entity_ids, "
+                    "c.relationship_ids = $relationship_ids, c.text_unit_ids = $text_unit_ids, "
+                    "c.period = $period, c.size = $size",
+                    id=community_id,
+                    community=community_num,
+                    level=level,
+                    parent=parent,
+                    children=children,
+                    title=title,
+                    entity_ids=entity_ids,
+                    relationship_ids=relationship_ids,
+                    text_unit_ids=text_unit_ids,
+                    period=period,
+                    size=size
+                )
+            
+            logger.info(f"Wrote {len(communities)} communities to Neo4j")
+            return True
+    except Exception as e:
+        logger.warning(f"Error writing communities to Neo4j: {e}")
+        return False
+    finally:
+        if driver is not None:
+            driver.close()
+
+
+def write_community_reports_to_neo4j(community_reports: pd.DataFrame) -> bool:
+    """
+    EXPERIMENTAL: Write community reports to Neo4j.
+    
+    Writes community reports using the schema:
+    - (:CommunityReport {id, community, level, parent, children, title, summary, full_content, rank, rating_explanation, findings, full_content_json, period, size})
+    
+    Parameters
+    ----------
+    community_reports : pd.DataFrame
+        DataFrame with columns: id, community, level, parent, children, title, summary, full_content, rank, rating_explanation, findings, full_content_json, period, size
+        
+    Returns
+    -------
+    bool
+        True if successful, False otherwise
+    """
+    if not _is_neo4j_enabled():
+        return False
+    
+    driver = _get_neo4j_driver()
+    if driver is None:
+        return False
+    
+    try:
+        with driver.session() as session:
+            # Create constraint/index for CommunityReport.id
+            session.run("CREATE CONSTRAINT community_report_id IF NOT EXISTS FOR (cr:CommunityReport) REQUIRE cr.id IS UNIQUE")
+            
+            # Batch write community reports
+            for _, row in community_reports.iterrows():
+                report_id = str(row.get("id", ""))
+                community_num = row.get("community", None)
+                level = row.get("level", None)
+                parent = row.get("parent", None)
+                children = row.get("children", []) if isinstance(row.get("children"), list) else []
+                title = str(row.get("title", "")) if pd.notna(row.get("title")) else ""
+                summary = str(row.get("summary", "")) if pd.notna(row.get("summary")) else ""
+                full_content = str(row.get("full_content", "")) if pd.notna(row.get("full_content")) else ""
+                rank = row.get("rank", None)
+                rating_explanation = str(row.get("rating_explanation", "")) if pd.notna(row.get("rating_explanation")) else ""
+                findings = row.get("findings", None)  # Can be dict/JSON
+                full_content_json = row.get("full_content_json", None)  # Can be dict/JSON
+                period = str(row.get("period", "")) if pd.notna(row.get("period")) else ""
+                size = row.get("size", None)
+                
+                if not report_id:
+                    continue
+                
+                session.run(
+                    "MERGE (cr:CommunityReport {id: $id}) "
+                    "SET cr.community = $community, cr.level = $level, cr.parent = $parent, "
+                    "cr.children = $children, cr.title = $title, cr.summary = $summary, "
+                    "cr.full_content = $full_content, cr.rank = $rank, cr.rating_explanation = $rating_explanation, "
+                    "cr.findings = $findings, cr.full_content_json = $full_content_json, "
+                    "cr.period = $period, cr.size = $size",
+                    id=report_id,
+                    community=community_num,
+                    level=level,
+                    parent=parent,
+                    children=children,
+                    title=title,
+                    summary=summary,
+                    full_content=full_content,
+                    rank=rank,
+                    rating_explanation=rating_explanation,
+                    findings=findings,
+                    full_content_json=full_content_json,
+                    period=period,
+                    size=size
+                )
+            
+            logger.info(f"Wrote {len(community_reports)} community reports to Neo4j")
+            return True
+    except Exception as e:
+        logger.warning(f"Error writing community reports to Neo4j: {e}")
+        return False
+    finally:
+        if driver is not None:
+            driver.close()
+
+
+def write_relationships_to_neo4j(relationships: pd.DataFrame) -> bool:
+    """
+    EXPERIMENTAL: Write relationships to Neo4j.
+    
+    Writes relationships using the schema:
+    - (:Relationship {id, source, target, description, weight, degree, text_unit_ids})
+    - Creates relationships: (:Entity {name: source})-[:RELATES_TO]->(:Entity {name: target})
+    
+    Parameters
+    ----------
+    relationships : pd.DataFrame
+        DataFrame with columns: id, source, target, description, weight, degree, text_unit_ids
+        
+    Returns
+    -------
+    bool
+        True if successful, False otherwise
+    """
+    if not _is_neo4j_enabled():
+        return False
+    
+    driver = _get_neo4j_driver()
+    if driver is None:
+        return False
+    
+    try:
+        with driver.session() as session:
+            # Create constraint/index for Relationship.id
+            session.run("CREATE CONSTRAINT relationship_id IF NOT EXISTS FOR (r:Relationship) REQUIRE r.id IS UNIQUE")
+            
+            # Batch write relationships
+            for _, row in relationships.iterrows():
+                rel_id = str(row.get("id", ""))
+                source = str(row.get("source", "")) if pd.notna(row.get("source")) else ""
+                target = str(row.get("target", "")) if pd.notna(row.get("target")) else ""
+                description = str(row.get("description", "")) if pd.notna(row.get("description")) else ""
+                weight = row.get("weight", None)
+                degree = row.get("degree", None)
+                text_unit_ids = row.get("text_unit_ids", []) if isinstance(row.get("text_unit_ids"), list) else []
+                
+                if not rel_id or not source or not target:
+                    continue
+                
+                # Create relationship node
+                session.run(
+                    "MERGE (r:Relationship {id: $id}) "
+                    "SET r.source = $source, r.target = $target, r.description = $description, "
+                    "r.weight = $weight, r.degree = $degree, r.text_unit_ids = $text_unit_ids",
+                    id=rel_id,
+                    source=source,
+                    target=target,
+                    description=description,
+                    weight=weight,
+                    degree=degree,
+                    text_unit_ids=text_unit_ids
+                )
+                
+                # Create RELATES_TO relationship between entities
+                session.run(
+                    "MATCH (e1:Entity {name: $source}), (e2:Entity {name: $target}) "
+                    "MERGE (e1)-[r:RELATES_TO {id: $rel_id}]->(e2) "
+                    "SET r.description = $description, r.weight = $weight",
+                    source=source,
+                    target=target,
+                    rel_id=rel_id,
+                    description=description,
+                    weight=weight
+                )
+            
+            logger.info(f"Wrote {len(relationships)} relationships to Neo4j")
+            return True
+    except Exception as e:
+        logger.warning(f"Error writing relationships to Neo4j: {e}")
+        return False
+    finally:
+        if driver is not None:
+            driver.close()
+
+
+def write_text_units_to_neo4j(text_units: pd.DataFrame) -> bool:
+    """
+    EXPERIMENTAL: Write text units to Neo4j.
+    
+    Writes text units using the schema:
+    - (:TextUnit {id, text, n_tokens, document_ids, entity_ids, relationship_ids, covariate_ids})
+    
+    Parameters
+    ----------
+    text_units : pd.DataFrame
+        DataFrame with columns: id, text, n_tokens, document_ids, entity_ids, relationship_ids, covariate_ids
+        
+    Returns
+    -------
+    bool
+        True if successful, False otherwise
+    """
+    if not _is_neo4j_enabled():
+        return False
+    
+    driver = _get_neo4j_driver()
+    if driver is None:
+        return False
+    
+    try:
+        with driver.session() as session:
+            # Create constraint/index for TextUnit.id
+            session.run("CREATE CONSTRAINT text_unit_id IF NOT EXISTS FOR (tu:TextUnit) REQUIRE tu.id IS UNIQUE")
+            
+            # Batch write text units
+            for _, row in text_units.iterrows():
+                text_unit_id = str(row.get("id", ""))
+                text = str(row.get("text", "")) if pd.notna(row.get("text")) else ""
+                n_tokens = row.get("n_tokens", None)
+                document_ids = row.get("document_ids", []) if isinstance(row.get("document_ids"), list) else []
+                entity_ids = row.get("entity_ids", []) if isinstance(row.get("entity_ids"), list) else []
+                relationship_ids = row.get("relationship_ids", []) if isinstance(row.get("relationship_ids"), list) else []
+                covariate_ids = row.get("covariate_ids", []) if isinstance(row.get("covariate_ids"), list) else []
+                
+                if not text_unit_id:
+                    continue
+                
+                session.run(
+                    "MERGE (tu:TextUnit {id: $id}) "
+                    "SET tu.text = $text, tu.n_tokens = $n_tokens, tu.document_ids = $document_ids, "
+                    "tu.entity_ids = $entity_ids, tu.relationship_ids = $relationship_ids, "
+                    "tu.covariate_ids = $covariate_ids",
+                    id=text_unit_id,
+                    text=text,
+                    n_tokens=n_tokens,
+                    document_ids=document_ids,
+                    entity_ids=entity_ids,
+                    relationship_ids=relationship_ids,
+                    covariate_ids=covariate_ids
+                )
+            
+            logger.info(f"Wrote {len(text_units)} text units to Neo4j")
+            return True
+    except Exception as e:
+        logger.warning(f"Error writing text units to Neo4j: {e}")
+        return False
+    finally:
+        if driver is not None:
+            driver.close()
+
+
+# ============================================================================
+# EXPERIMENTAL: Neo4j Read Functions (Load from Neo4j instead of Parquet)
+# ============================================================================
+
+def load_entities_from_neo4j() -> pd.DataFrame:
+    """
+    EXPERIMENTAL: Load entities from Neo4j.
+    
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with entities, or empty DataFrame if Neo4j unavailable
+    """
+    if not _is_neo4j_enabled():
+        return pd.DataFrame()
+    
+    driver = _get_neo4j_driver()
+    if driver is None:
+        return pd.DataFrame()
+    
+    try:
+        with driver.session() as session:
+            result = session.run("MATCH (e:Entity) RETURN e.id as id, e.name as title, e.type as type")
+            records = []
+            for record in result:
+                records.append({
+                    "id": record["id"],
+                    "title": record.get("title", ""),
+                    "type": record.get("type", "")
+                })
+            return pd.DataFrame(records)
+    except Exception as e:
+        logger.warning(f"Error loading entities from Neo4j: {e}")
+        return pd.DataFrame()
+    finally:
+        if driver is not None:
+            driver.close()
+
+
+def load_communities_from_neo4j() -> pd.DataFrame:
+    """
+    EXPERIMENTAL: Load communities from Neo4j.
+    
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with communities, or empty DataFrame if Neo4j unavailable
+    """
+    if not _is_neo4j_enabled():
+        return pd.DataFrame()
+    
+    driver = _get_neo4j_driver()
+    if driver is None:
+        return pd.DataFrame()
+    
+    try:
+        with driver.session() as session:
+            result = session.run(
+                "MATCH (c:Community) "
+                "RETURN c.id as id, c.community as community, c.level as level, "
+                "c.parent as parent, c.children as children, c.title as title, "
+                "c.entity_ids as entity_ids, c.relationship_ids as relationship_ids, "
+                "c.text_unit_ids as text_unit_ids, c.period as period, c.size as size"
+            )
+            records = []
+            for record in result:
+                records.append({
+                    "id": record["id"],
+                    "community": record.get("community"),
+                    "level": record.get("level"),
+                    "parent": record.get("parent"),
+                    "children": record.get("children", []),
+                    "title": record.get("title", ""),
+                    "entity_ids": record.get("entity_ids", []),
+                    "relationship_ids": record.get("relationship_ids", []),
+                    "text_unit_ids": record.get("text_unit_ids", []),
+                    "period": record.get("period", ""),
+                    "size": record.get("size")
+                })
+            return pd.DataFrame(records)
+    except Exception as e:
+        logger.warning(f"Error loading communities from Neo4j: {e}")
+        return pd.DataFrame()
+    finally:
+        if driver is not None:
+            driver.close()
+
+
+def load_community_reports_from_neo4j() -> pd.DataFrame:
+    """
+    EXPERIMENTAL: Load community reports from Neo4j.
+    
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with community reports, or empty DataFrame if Neo4j unavailable
+    """
+    if not _is_neo4j_enabled():
+        return pd.DataFrame()
+    
+    driver = _get_neo4j_driver()
+    if driver is None:
+        return pd.DataFrame()
+    
+    try:
+        with driver.session() as session:
+            result = session.run(
+                "MATCH (cr:CommunityReport) "
+                "RETURN cr.id as id, cr.community as community, cr.level as level, "
+                "cr.parent as parent, cr.children as children, cr.title as title, "
+                "cr.summary as summary, cr.full_content as full_content, cr.rank as rank, "
+                "cr.rating_explanation as rating_explanation, cr.findings as findings, "
+                "cr.full_content_json as full_content_json, cr.period as period, cr.size as size"
+            )
+            records = []
+            for record in result:
+                records.append({
+                    "id": record["id"],
+                    "community": record.get("community"),
+                    "level": record.get("level"),
+                    "parent": record.get("parent"),
+                    "children": record.get("children", []),
+                    "title": record.get("title", ""),
+                    "summary": record.get("summary", ""),
+                    "full_content": record.get("full_content", ""),
+                    "rank": record.get("rank"),
+                    "rating_explanation": record.get("rating_explanation", ""),
+                    "findings": record.get("findings"),
+                    "full_content_json": record.get("full_content_json"),
+                    "period": record.get("period", ""),
+                    "size": record.get("size")
+                })
+            return pd.DataFrame(records)
+    except Exception as e:
+        logger.warning(f"Error loading community reports from Neo4j: {e}")
+        return pd.DataFrame()
+    finally:
+        if driver is not None:
+            driver.close()
+
+
+def load_relationships_from_neo4j() -> pd.DataFrame:
+    """
+    EXPERIMENTAL: Load relationships from Neo4j.
+    
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with relationships, or empty DataFrame if Neo4j unavailable
+    """
+    if not _is_neo4j_enabled():
+        return pd.DataFrame()
+    
+    driver = _get_neo4j_driver()
+    if driver is None:
+        return pd.DataFrame()
+    
+    try:
+        with driver.session() as session:
+            result = session.run(
+                "MATCH (r:Relationship) "
+                "RETURN r.id as id, r.source as source, r.target as target, "
+                "r.description as description, r.weight as weight, r.degree as degree, "
+                "r.text_unit_ids as text_unit_ids"
+            )
+            records = []
+            for record in result:
+                records.append({
+                    "id": record["id"],
+                    "source": record.get("source", ""),
+                    "target": record.get("target", ""),
+                    "description": record.get("description", ""),
+                    "weight": record.get("weight"),
+                    "degree": record.get("degree"),
+                    "text_unit_ids": record.get("text_unit_ids", [])
+                })
+            return pd.DataFrame(records)
+    except Exception as e:
+        logger.warning(f"Error loading relationships from Neo4j: {e}")
+        return pd.DataFrame()
+    finally:
+        if driver is not None:
+            driver.close()
+
+
+def load_text_units_from_neo4j() -> pd.DataFrame:
+    """
+    EXPERIMENTAL: Load text units from Neo4j.
+    
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with text units, or empty DataFrame if Neo4j unavailable
+    """
+    if not _is_neo4j_enabled():
+        return pd.DataFrame()
+    
+    driver = _get_neo4j_driver()
+    if driver is None:
+        return pd.DataFrame()
+    
+    try:
+        with driver.session() as session:
+            result = session.run(
+                "MATCH (tu:TextUnit) "
+                "RETURN tu.id as id, tu.text as text, tu.n_tokens as n_tokens, "
+                "tu.document_ids as document_ids, tu.entity_ids as entity_ids, "
+                "tu.relationship_ids as relationship_ids, tu.covariate_ids as covariate_ids"
+            )
+            records = []
+            for record in result:
+                records.append({
+                    "id": record["id"],
+                    "text": record.get("text", ""),
+                    "n_tokens": record.get("n_tokens"),
+                    "document_ids": record.get("document_ids", []),
+                    "entity_ids": record.get("entity_ids", []),
+                    "relationship_ids": record.get("relationship_ids", []),
+                    "covariate_ids": record.get("covariate_ids", [])
+                })
+            return pd.DataFrame(records)
+    except Exception as e:
+        logger.warning(f"Error loading text units from Neo4j: {e}")
+        return pd.DataFrame()
+    finally:
+        if driver is not None:
+            driver.close()
+
+
+def load_documents_from_neo4j() -> pd.DataFrame:
+    """
+    EXPERIMENTAL: Load documents from Neo4j.
+    
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with documents, or empty DataFrame if Neo4j unavailable
+    """
+    if not _is_neo4j_enabled():
+        return pd.DataFrame()
+    
+    driver = _get_neo4j_driver()
+    if driver is None:
+        return pd.DataFrame()
+    
+    try:
+        with driver.session() as session:
+            result = session.run(
+                "MATCH (d:Document) "
+                "RETURN d.id as id, d.text as text, d.source as source"
+            )
+            records = []
+            for record in result:
+                records.append({
+                    "id": record["id"],
+                    "text": record.get("text", ""),
+                    "title": record.get("source", ""),  # Use source as title for compatibility
+                    "source": record.get("source", "")
+                })
+            return pd.DataFrame(records)
+    except Exception as e:
+        logger.warning(f"Error loading documents from Neo4j: {e}")
+        return pd.DataFrame()
     finally:
         if driver is not None:
             driver.close()

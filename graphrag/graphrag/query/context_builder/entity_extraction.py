@@ -91,7 +91,7 @@ def map_query_to_entities(
     for entity_name in include_entity_names:
         # Try Neo4j lookup first (experimental POC)
         try:
-            from graphrag.graph.neo4j_client import get_entity_by_name_neo4j
+            from graphrag.graphrag.graph.neo4j_client import get_entity_by_name_neo4j
             
             neo4j_entity = get_entity_by_name_neo4j(entity_name)
             if neo4j_entity:

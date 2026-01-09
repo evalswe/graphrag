@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # EXPERIMENTAL: Neo4j integration (feature-flagged)
 try:
-    from graphrag.graph.neo4j_client import (
+    from graphrag.graphrag.graph.neo4j_client import (
         write_documents_to_neo4j,
         write_entities_to_neo4j,
         write_mentions_to_neo4j,
