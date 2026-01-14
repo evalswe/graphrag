@@ -11,7 +11,11 @@ from pydantic import BaseModel, Field
 
 from graphrag.index.typing.error_handler import ErrorHandlerFn
 from graphrag.language_model.protocol.base import ChatModel
-from graphrag.prompts.index.community_report import COMMUNITY_REPORT_PROMPT
+
+try:
+    from graphrag.prompts.index.community_report import COMMUNITY_REPORT_PROMPT
+except ImportError:
+    COMMUNITY_REPORT_PROMPT = ""
 
 logger = logging.getLogger(__name__)
 

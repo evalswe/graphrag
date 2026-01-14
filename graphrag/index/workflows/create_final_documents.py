@@ -5,26 +5,20 @@
 
 import logging
 
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]
 
 from graphrag.config.models.graph_rag_config import GraphRagConfig
 from graphrag.data_model.schemas import DOCUMENTS_FINAL_COLUMNS
+from graphrag.graphrag.graph.neo4j_client import (
+    write_documents_to_neo4j,
+    write_entities_to_neo4j,
+    write_mentions_to_neo4j,
+)
 from graphrag.index.typing.context import PipelineRunContext
 from graphrag.index.typing.workflow import WorkflowFunctionOutput
 from graphrag.utils.storage import load_table_from_storage, write_table_to_storage
 
 logger = logging.getLogger(__name__)
-
-# EXPERIMENTAL: Neo4j integration (feature-flagged)
-try:
-    from graphrag.graphrag.graph.neo4j_client import (
-        write_documents_to_neo4j,
-        write_entities_to_neo4j,
-        write_mentions_to_neo4j,
-    )
-    NEO4J_AVAILABLE = True
-except ImportError:
-    NEO4J_AVAILABLE = False
 
 
 async def run_workflow(
@@ -40,20 +34,13 @@ async def run_workflow(
 
     await write_table_to_storage(output, "documents", context.output_storage)
 
-    # EXPERIMENTAL: Write to Neo4j if enabled (feature-flagged)
-    if NEO4J_AVAILABLE:
-        try:
-            # Load final entities (already finalized in finalize_graph workflow)
-            entities = await load_table_from_storage("entities", context.output_storage)
-            
-            # Write documents, entities, and mentions to Neo4j
-            write_documents_to_neo4j(output)
-            write_entities_to_neo4j(entities)
-            write_mentions_to_neo4j(entities, output, text_units)
-            
-            logger.info("Neo4j write completed (experimental)")
-        except Exception as e:
-            logger.warning(f"Neo4j write failed (non-fatal): {e}")
+    # Load final entities (already finalized in finalize_graph workflow)
+    entities = await load_table_from_storage("entities", context.output_storage)
+    
+    # Write documents, entities, and mentions to Neo4j
+    write_documents_to_neo4j(output)
+    write_entities_to_neo4j(entities)
+    write_mentions_to_neo4j(entities, output, text_units)
 
     logger.info("Workflow completed: create_final_documents")
     return WorkflowFunctionOutput(result=output)

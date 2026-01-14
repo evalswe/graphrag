@@ -17,10 +17,15 @@ from graphrag.data_model.entity import Entity
 from graphrag.data_model.relationship import Relationship
 from graphrag.data_model.text_unit import TextUnit
 from graphrag.language_model.protocol.base import ChatModel, EmbeddingModel
-from graphrag.prompts.query.drift_search_system_prompt import (
-    DRIFT_LOCAL_SYSTEM_PROMPT,
-    DRIFT_REDUCE_PROMPT,
-)
+
+try:
+    from graphrag.prompts.query.drift_search_system_prompt import (
+        DRIFT_LOCAL_SYSTEM_PROMPT,
+        DRIFT_REDUCE_PROMPT,
+    )
+except ImportError:
+    DRIFT_LOCAL_SYSTEM_PROMPT = ""
+    DRIFT_REDUCE_PROMPT = ""
 from graphrag.query.context_builder.entity_extraction import EntityVectorStoreKey
 from graphrag.query.structured_search.base import DRIFTContextBuilder
 from graphrag.query.structured_search.drift_search.primer import PrimerQueryProcessor

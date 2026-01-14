@@ -12,21 +12,7 @@ import graphrag.api as api
 from graphrag.callbacks.noop_query_callbacks import NoopQueryCallbacks
 from graphrag.config.load_config import load_config
 from graphrag.config.models.graph_rag_config import GraphRagConfig
-from graphrag.utils.api import create_storage_from_config
-from graphrag.utils.storage import load_table_from_storage, storage_has_table
-
-# EXPERIMENTAL: Neo4j integration (feature-flagged)
-try:
-    from graphrag.query.neo4j_loader import load_async_from_neo4j_or_storage
-    NEO4J_AVAILABLE = True
-except ImportError:
-    NEO4J_AVAILABLE = False
-    # Fallback if Neo4j loader not available
-    def load_async_from_neo4j_or_storage(name, storage_loader, *args, **kwargs):
-        import asyncio
-        if asyncio.iscoroutinefunction(storage_loader):
-            return await storage_loader(*args, **kwargs)
-        return storage_loader(*args, **kwargs)
+from graphrag.query.neo4j_loader import load_async_from_neo4j
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -487,43 +473,24 @@ def run_basic_search(
     return response, context_data
 
 
-async def _load_from_neo4j_or_storage(
-    name: str,
-    storage_obj: Any,
-    use_neo4j: bool = True,  # Default to True - Neo4j first when available
-) -> "pd.DataFrame":
+async def _load_from_neo4j(name: str) -> "pd.DataFrame":
     """
-    Load data from Neo4j first (if enabled), otherwise from storage.
+    Load data from Neo4j.
     
     This is the primary data loading function for query operations.
-    When GRAPHRAG_USE_NEO4J=true, it attempts to load from Neo4j first.
-    If Neo4j is unavailable or disabled, it falls back to parquet storage.
+    All data is loaded from Neo4j.
     
     Parameters
     ----------
     name : str
         Table name (e.g., "entities", "communities")
-    storage_obj : Any
-        Storage object for fallback
-    use_neo4j : bool
-        Whether to try Neo4j first (default: True)
         
     Returns
     -------
     pd.DataFrame
-        Loaded dataframe from Neo4j or storage
+        Loaded dataframe from Neo4j
     """
-    if NEO4J_AVAILABLE and use_neo4j:
-        async def storage_loader():
-            return await load_table_from_storage(name=name, storage=storage_obj)
-        
-        return await load_async_from_neo4j_or_storage(
-            name=name,
-            storage_loader=storage_loader
-        )
-    
-    # Fallback to parquet storage
-    return await load_table_from_storage(name=name, storage=storage_obj)
+    return await load_async_from_neo4j(name=name)
 
 
 def _resolve_output_files(
@@ -533,8 +500,11 @@ def _resolve_output_files(
 ) -> dict[str, Any]:
     """Read indexing output files to a dataframe dict.
     
-    If GRAPHRAG_USE_NEO4J=true, loads from Neo4j first, then falls back to parquet files.
-    Neo4j is now the primary data source when enabled.
+    Loads all data from Neo4j into memory as dataframes.
+    
+    Note: This currently loads all data into memory. Future optimization:
+    operate directly on Neo4j without loading full datasets to reduce memory load.
+    The main reason for Neo4j integration is to reduce memory load for large graphs.
     """
     dataframe_dict = {}
 
@@ -544,11 +514,10 @@ def _resolve_output_files(
         dataframe_dict["num_indexes"] = len(config.outputs)
         dataframe_dict["index_names"] = config.outputs.keys()
         for output in config.outputs.values():
-            storage_obj = create_storage_from_config(output)
             for name in output_list:
                 if name not in dataframe_dict:
                     dataframe_dict[name] = []
-                df_value = asyncio.run(_load_from_neo4j_or_storage(name, storage_obj, use_neo4j=True))
+                df_value = asyncio.run(_load_from_neo4j(name))
                 dataframe_dict[name].append(df_value)
 
             # for optional output files, do not append if the dataframe does not exist
@@ -556,27 +525,28 @@ def _resolve_output_files(
                 for optional_file in optional_list:
                     if optional_file not in dataframe_dict:
                         dataframe_dict[optional_file] = []
-                    file_exists = asyncio.run(
-                        storage_has_table(optional_file, storage_obj)
-                    )
-                    if file_exists:
-                        df_value = asyncio.run(_load_from_neo4j_or_storage(optional_file, storage_obj, use_neo4j=True))
-                        dataframe_dict[optional_file].append(df_value)
+                    try:
+                        df_value = asyncio.run(_load_from_neo4j(optional_file))
+                        if not df_value.empty:
+                            dataframe_dict[optional_file].append(df_value)
+                    except Exception:
+                        pass
         return dataframe_dict
     # Loading output files for single-index search
     dataframe_dict["multi-index"] = False
-    storage_obj = create_storage_from_config(config.output)
     for name in output_list:
-        df_value = asyncio.run(_load_from_neo4j_or_storage(name, storage_obj, use_neo4j=True))
+        df_value = asyncio.run(_load_from_neo4j(name))
         dataframe_dict[name] = df_value
 
     # for optional output files, set the dict entry to None instead of erroring out if it does not exist
     if optional_list:
         for optional_file in optional_list:
-            file_exists = asyncio.run(storage_has_table(optional_file, storage_obj))
-            if file_exists:
-                df_value = asyncio.run(_load_from_neo4j_or_storage(optional_file, storage_obj, use_neo4j=True))
-                dataframe_dict[optional_file] = df_value
-            else:
+            try:
+                df_value = asyncio.run(_load_from_neo4j(optional_file))
+                if not df_value.empty:
+                    dataframe_dict[optional_file] = df_value
+                else:
+                    dataframe_dict[optional_file] = None
+            except Exception:
                 dataframe_dict[optional_file] = None
     return dataframe_dict

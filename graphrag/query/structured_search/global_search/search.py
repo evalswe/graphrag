@@ -15,16 +15,23 @@ import pandas as pd
 
 from graphrag.callbacks.query_callbacks import QueryCallbacks
 from graphrag.language_model.protocol.base import ChatModel
-from graphrag.prompts.query.global_search_knowledge_system_prompt import (
-    GENERAL_KNOWLEDGE_INSTRUCTION,
-)
-from graphrag.prompts.query.global_search_map_system_prompt import (
-    MAP_SYSTEM_PROMPT,
-)
-from graphrag.prompts.query.global_search_reduce_system_prompt import (
-    NO_DATA_ANSWER,
-    REDUCE_SYSTEM_PROMPT,
-)
+
+try:
+    from graphrag.prompts.query.global_search_knowledge_system_prompt import (
+        GENERAL_KNOWLEDGE_INSTRUCTION,
+    )
+    from graphrag.prompts.query.global_search_map_system_prompt import (
+        MAP_SYSTEM_PROMPT,
+    )
+    from graphrag.prompts.query.global_search_reduce_system_prompt import (
+        NO_DATA_ANSWER,
+        REDUCE_SYSTEM_PROMPT,
+    )
+except ImportError:
+    GENERAL_KNOWLEDGE_INSTRUCTION = ""
+    MAP_SYSTEM_PROMPT = ""
+    NO_DATA_ANSWER = ""
+    REDUCE_SYSTEM_PROMPT = ""
 from graphrag.query.context_builder.builders import GlobalContextBuilder
 from graphrag.query.context_builder.conversation_history import (
     ConversationHistory,

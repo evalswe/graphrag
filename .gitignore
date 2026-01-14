@@ -12,10 +12,10 @@ examples_notebooks/*/data
 tests/fixtures/cache
 tests/fixtures/*/cache
 tests/fixtures/*/output
-output/lancedb
-output/*.json
-output/*.parquet
-prompts/*.txt
+
+# Generated files (created by graphrag init and indexing)
+# These are user-specific and shouldn't be committed
+output/
 
 
 # Random
@@ -47,7 +47,6 @@ ragtest/
 .pipelines
 .pipeline
 
-
 # mkdocs
 site/
 
@@ -61,11 +60,3 @@ docsite/
 
 # Jupyter notebook
 .ipynb_checkpoints/
-
-# Local development files
-.vscode/settings.json
-settings.yaml
-run_*.bat
-run_*.py
-start_*.py
-input/documents/test.txt

@@ -19,18 +19,10 @@ from graphrag.utils.storage import load_table_from_storage, write_table_to_stora
 
 logger = logging.getLogger(__name__)
 
-# EXPERIMENTAL: Neo4j integration (feature-flagged)
-try:
-    from graphrag.graphrag.graph.neo4j_client import (
-        write_entities_to_neo4j,
-        write_relationships_to_neo4j,
-    )
-
-    NEO4J_AVAILABLE = True
-except ImportError:
-    NEO4J_AVAILABLE = False
-    write_entities_to_neo4j = None  # type: ignore
-    write_relationships_to_neo4j = None  # type: ignore
+from graphrag.graphrag.graph.neo4j_client import (
+    write_entities_to_neo4j,
+    write_relationships_to_neo4j,
+)
 
 
 async def run_workflow(
@@ -56,17 +48,8 @@ async def run_workflow(
         final_relationships, "relationships", context.output_storage
     )
 
-    # EXPERIMENTAL: Write to Neo4j if enabled (feature-flagged)
-    if NEO4J_AVAILABLE:
-        try:
-            if write_entities_to_neo4j is not None:
-                write_entities_to_neo4j(final_entities)
-                logger.info("Neo4j write completed for entities (experimental)")
-            if write_relationships_to_neo4j is not None:
-                write_relationships_to_neo4j(final_relationships)
-                logger.info("Neo4j write completed for relationships (experimental)")
-        except Exception as e:  # noqa: BLE001
-            logger.warning("Neo4j write failed (non-fatal): %s", e)
+    write_entities_to_neo4j(final_entities)
+    write_relationships_to_neo4j(final_relationships)
 
     if config.snapshots.graphml:
         # todo: extract graphs at each level, and add in meta like descriptions

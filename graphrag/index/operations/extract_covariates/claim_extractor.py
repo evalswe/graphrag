@@ -11,11 +11,17 @@ from typing import Any
 from graphrag.config.defaults import graphrag_config_defaults
 from graphrag.index.typing.error_handler import ErrorHandlerFn
 from graphrag.language_model.protocol.base import ChatModel
-from graphrag.prompts.index.extract_claims import (
-    CONTINUE_PROMPT,
-    EXTRACT_CLAIMS_PROMPT,
-    LOOP_PROMPT,
-)
+
+try:
+    from graphrag.prompts.index.extract_claims import (
+        CONTINUE_PROMPT,
+        EXTRACT_CLAIMS_PROMPT,
+        LOOP_PROMPT,
+    )
+except ImportError:
+    CONTINUE_PROMPT = ""
+    EXTRACT_CLAIMS_PROMPT = ""
+    LOOP_PROMPT = ""
 
 DEFAULT_TUPLE_DELIMITER = "<|>"
 DEFAULT_RECORD_DELIMITER = "##"

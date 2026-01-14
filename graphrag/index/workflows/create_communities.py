@@ -21,12 +21,7 @@ from graphrag.utils.storage import load_table_from_storage, write_table_to_stora
 
 logger = logging.getLogger(__name__)
 
-# EXPERIMENTAL: Neo4j integration (feature-flagged)
-try:
-    from graphrag.graphrag.graph.neo4j_client import write_communities_to_neo4j
-    NEO4J_AVAILABLE = True
-except ImportError:
-    NEO4J_AVAILABLE = False
+from graphrag.graphrag.graph.neo4j_client import write_communities_to_neo4j
 
 
 async def run_workflow(
@@ -54,13 +49,7 @@ async def run_workflow(
 
     await write_table_to_storage(output, "communities", context.output_storage)
 
-    # EXPERIMENTAL: Write to Neo4j if enabled (feature-flagged)
-    if NEO4J_AVAILABLE:
-        try:
-            write_communities_to_neo4j(output)
-            logger.info("Neo4j write completed for communities (experimental)")
-        except Exception as e:
-            logger.warning(f"Neo4j write failed for communities (non-fatal): {e}")
+    write_communities_to_neo4j(output)
 
     logger.info("Workflow completed: create_communities")
     return WorkflowFunctionOutput(result=output)

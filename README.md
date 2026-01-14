@@ -3,15 +3,14 @@
 **Table of Contents:**
 1. [README](#readme)
 2. [CHANGELOG](#changelog)
-3. [CHANGES_SUMMARY](#changes_summary)
-4. [CODE_OF_CONDUCT](#code_of_conduct)
-5. [CONTRIBUTING](#contributing)
-6. [DEVELOPING](#developing)
-7. [NEO4J_IMPLEMENTATION_COMPLETE](#neo4j_implementation_complete)
-8. [NEO4J_MIGRATION_PLAN](#neo4j_migration_plan)
-9. [RAI_TRANSPARENCY](#rai_transparency)
-10. [SECURITY](#security)
-11. [SUPPORT](#support)
+3. [CODE_OF_CONDUCT](#code_of_conduct)
+4. [CONTRIBUTING](#contributing)
+5. [DEVELOPING](#developing)
+6. [NEO4J_IMPLEMENTATION_COMPLETE](#neo4j_implementation_complete)
+7. [NEO4J_MIGRATION_PLAN](#neo4j_migration_plan)
+8. [RAI_TRANSPARENCY](#rai_transparency)
+9. [SECURITY](#security)
+10. [SUPPORT](#support)
 
 ---
 
@@ -478,130 +477,6 @@ Note: version releases in the 0.x.y range may introduce breaking changes.
 
 ---
 
-# CHANGES_SUMMARY
-
-# Changes Summary
-
-## Files Removed (PR Cleanup)
-
-### Output Files (Generated Artifacts)
-- `output/context.json`
-- `output/documents.parquet`
-- `output/stats.json`
-- `output/text_units.parquet`
-
-### Prompt Files (Auto-generated)
-- `prompts/basic_search_system_prompt.txt`
-- `prompts/community_report_graph.txt`
-- `prompts/community_report_text.txt`
-- `prompts/drift_reduce_prompt.txt`
-- `prompts/drift_search_system_prompt.txt`
-- `prompts/extract_claims.txt`
-- `prompts/extract_graph.txt`
-- `prompts/global_search_knowledge_system_prompt.txt`
-- `prompts/global_search_map_system_prompt.txt`
-- `prompts/global_search_reduce_system_prompt.txt`
-- `prompts/local_search_system_prompt.txt`
-- `prompts/question_gen_system_prompt.txt`
-- `prompts/summarize_descriptions.txt`
-
-### Temporary/Local Development Files
-- `input/documents/test.txt` (test input file)
-- `settings.yaml` (local project config)
-- `25.3` (empty file)
-- `.vscode/settings.json` (IDE settings)
-- `run_check.bat` (temporary batch script)
-- `run_index.bat` (temporary batch script)
-- `run_start_neo4j.bat` (temporary batch script)
-- `run_index.py` (temporary helper script)
-- `start_neo4j.py` (temporary helper script)
-
-**Total: 27 files removed**
-
----
-
-## Files Modified (New Features Added)
-
-### 1. `.gitignore`
-**Added patterns to prevent future commits:**
-```diff
-+ output/*.json
-+ output/*.parquet
-+ prompts/*.txt
-+ .vscode/settings.json
-+ settings.yaml
-+ run_*.bat
-+ run_*.py
-+ start_*.py
-+ input/documents/test.txt
-```
-
-### 2. `graphrag/api/cypher_query.py`
-**Added Text-to-Cypher functionality (similar to LlamaIndex):**
-
-#### New Functions:
-1. **`generate_cypher_async()`** - LLM-powered Cypher query generation from natural language
-   - Uses graph schema information
-   - Includes example queries in prompt
-   - Cleans up markdown code blocks from LLM responses
-
-2. **`generate_cypher()`** - Synchronous wrapper for `generate_cypher_async()`
-
-3. **`query_with_natural_language_async()`** - Generate and execute Cypher queries
-   - Converts natural language to Cypher
-   - Optionally executes the query
-   - Returns both query and results
-
-4. **`query_with_natural_language()`** - Synchronous wrapper
-
-5. **`_build_text_to_cypher_prompt()`** - Builds schema-aware prompts
-   - Includes node labels, relationship types, and properties
-   - Provides example queries for better generation
-
-#### Key Features:
-- Uses LLM to convert natural language questions to Cypher queries
-- Schema-aware: Includes Neo4j graph schema in prompts
-- Similar to LlamaIndex's `TextToCypherRetriever`
-- Graceful error handling with fallback queries
-
-### 3. `graphrag/cli/main.py`
-**Added new CLI command:**
-
-#### New Command: `graphrag cypher`
-```python
-@app.command("cypher")
-def _cypher_cli(
-    question: str,           # Natural language question
-    config: Path,            # Config file
-    root: Path,              # Project root
-    model_id: str,          # Optional model ID
-    execute: bool,          # Execute query or just generate
-    verbose: bool,          # Verbose logging
-)
-```
-
-**Usage:**
-```bash
-graphrag cypher --question "Find all documents mentioning Microsoft" --config settings.yaml
-```
-
----
-
-## Code Statistics
-
-### Lines Added:
-- `graphrag/api/cypher_query.py`: ~220 lines (Text-to-Cypher implementation)
-- `graphrag/cli/main.py`: ~76 lines (CLI command)
-- `.gitignore`: ~11 lines (ignore patterns)
-
-**Total: ~307 lines added**
-
-### Lines Removed:
-- 27 files removed (output, prompts, temporary files)
-- ~1,268 lines deleted
-
----
-
 ## Features Implemented
 
 ### ✅ 1. Cypher-Only Implementation
@@ -664,15 +539,6 @@ To test the new features:
    # Queries will read from Neo4j
    graphrag query --method local --query "your question"
    ```
-
----
-
-## Summary
-
-- **27 files removed** (cleanup)
-- **3 files modified** (new features)
-- **~307 lines added** (Text-to-Cypher functionality)
-- **All requirements implemented** ✅
 
 ---
 

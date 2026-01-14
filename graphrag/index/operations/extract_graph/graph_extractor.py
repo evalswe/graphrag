@@ -16,11 +16,17 @@ from graphrag.config.defaults import graphrag_config_defaults
 from graphrag.index.typing.error_handler import ErrorHandlerFn
 from graphrag.index.utils.string import clean_str
 from graphrag.language_model.protocol.base import ChatModel
-from graphrag.prompts.index.extract_graph import (
-    CONTINUE_PROMPT,
-    GRAPH_EXTRACTION_PROMPT,
-    LOOP_PROMPT,
-)
+
+try:
+    from graphrag.prompts.index.extract_graph import (
+        CONTINUE_PROMPT,
+        GRAPH_EXTRACTION_PROMPT,
+        LOOP_PROMPT,
+    )
+except ImportError:
+    CONTINUE_PROMPT = ""
+    GRAPH_EXTRACTION_PROMPT = ""
+    LOOP_PROMPT = ""
 
 DEFAULT_TUPLE_DELIMITER = "<|>"
 DEFAULT_RECORD_DELIMITER = "##"

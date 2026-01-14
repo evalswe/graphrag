@@ -15,9 +15,13 @@ from tqdm.asyncio import tqdm_asyncio
 from graphrag.config.models.drift_search_config import DRIFTSearchConfig
 from graphrag.data_model.community_report import CommunityReport
 from graphrag.language_model.protocol.base import ChatModel, EmbeddingModel
-from graphrag.prompts.query.drift_search_system_prompt import (
-    DRIFT_PRIMER_PROMPT,
-)
+
+try:
+    from graphrag.prompts.query.drift_search_system_prompt import (
+        DRIFT_PRIMER_PROMPT,
+    )
+except ImportError:
+    DRIFT_PRIMER_PROMPT = ""
 from graphrag.query.structured_search.base import SearchResult
 from graphrag.tokenizer.get_tokenizer import get_tokenizer
 from graphrag.tokenizer.tokenizer import Tokenizer

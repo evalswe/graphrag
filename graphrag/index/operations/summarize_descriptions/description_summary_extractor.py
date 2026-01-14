@@ -8,7 +8,11 @@ from dataclasses import dataclass
 
 from graphrag.index.typing.error_handler import ErrorHandlerFn
 from graphrag.language_model.protocol.base import ChatModel
-from graphrag.prompts.index.summarize_descriptions import SUMMARIZE_PROMPT
+
+try:
+    from graphrag.prompts.index.summarize_descriptions import SUMMARIZE_PROMPT
+except ImportError:
+    SUMMARIZE_PROMPT = ""
 from graphrag.tokenizer.get_tokenizer import get_tokenizer
 
 # these tokens are used in the prompt

@@ -8,11 +8,6 @@ from enum import Enum
 from graphrag.data_model.entity import Entity
 from graphrag.data_model.relationship import Relationship
 from graphrag.language_model.protocol.base import EmbeddingModel
-from graphrag.query.input.retrieval.entities import (
-    get_entity_by_id,
-    get_entity_by_key,
-    get_entity_by_name,
-)
 from graphrag.vector_stores.base import BaseVectorStore
 
 
@@ -50,7 +45,6 @@ def map_query_to_entities(
         include_entity_names = []
     if exclude_entity_names is None:
         exclude_entity_names = []
-    all_entities = list(all_entities_dict.values())
     matched_entities = []
     if query != "":
         # get entities with highest semantic similarity to query
@@ -61,21 +55,44 @@ def map_query_to_entities(
             k=k * oversample_scaler,
         )
         for result in search_results:
+            from graphrag.graphrag.graph.neo4j_client import (
+                get_entity_by_id_neo4j,
+                get_entity_by_name_neo4j,
+            )
+            
             if embedding_vectorstore_key == EntityVectorStoreKey.ID and isinstance(
                 result.document.id, str
             ):
-                matched = get_entity_by_id(all_entities_dict, result.document.id)
+                neo4j_entity = get_entity_by_id_neo4j(result.document.id)
             else:
-                matched = get_entity_by_key(
-                    entities=all_entities,
-                    key=embedding_vectorstore_key,
-                    value=result.document.id,
+                # For TITLE key, use name lookup
+                neo4j_entity = get_entity_by_name_neo4j(str(result.document.id))
+            
+            if neo4j_entity:
+                matched = Entity(
+                    id=neo4j_entity.get("id", ""),
+                    title=neo4j_entity.get("name", ""),
+                    type=neo4j_entity.get("type")
                 )
-            if matched:
                 matched_entities.append(matched)
     else:
-        all_entities.sort(key=lambda x: x.rank if x.rank else 0, reverse=True)
-        matched_entities = all_entities[:k]
+        # Load entities from Neo4j sorted by rank
+        from graphrag.graphrag.graph.neo4j_client import load_entities_from_neo4j
+        
+        entities_df = load_entities_from_neo4j()
+        if not entities_df.empty:
+            # Sort by rank (if available) and take top k
+            if "rank" in entities_df.columns:
+                entities_df = entities_df.sort_values("rank", ascending=False, na_position="last")
+            matched_entities = [
+                Entity(
+                    id=str(row.get("id", "")),
+                    title=str(row.get("title", "")),
+                    type=row.get("type"),
+                    rank=row.get("rank")
+                )
+                for _, row in entities_df.head(k).iterrows()
+            ]
 
     # filter out excluded entities
     if exclude_entity_names:
@@ -86,57 +103,47 @@ def map_query_to_entities(
         ]
 
     # add entities in the include_entity list
-    # EXPERIMENTAL POC: Try Neo4j first for entity lookup, fall back to dataframe logic
     included_entities = []
     for entity_name in include_entity_names:
-        # Try Neo4j lookup first (experimental POC)
-        try:
-            from graphrag.graphrag.graph.neo4j_client import get_entity_by_name_neo4j
-            
-            neo4j_entity = get_entity_by_name_neo4j(entity_name)
-            if neo4j_entity:
-                # Convert Neo4j result to Entity object for compatibility
-                # Create a minimal Entity object with required fields
-                entity = Entity(
-                    id=neo4j_entity.get("id", ""),
-                    title=neo4j_entity.get("name", entity_name),
-                    type=neo4j_entity.get("type")
-                )
-                included_entities.append(entity)
-                continue  # Skip dataframe lookup if Neo4j found the entity
-        except Exception:
-            # Fall back to dataframe logic on any error
-            pass
+        from graphrag.graphrag.graph.neo4j_client import get_entity_by_name_neo4j
         
-        # Fallback to existing dataframe-based lookup
-        included_entities.extend(get_entity_by_name(all_entities, entity_name))
+        neo4j_entity = get_entity_by_name_neo4j(entity_name)
+        if neo4j_entity:
+            entity = Entity(
+                id=neo4j_entity.get("id", ""),
+                title=neo4j_entity.get("name", entity_name),
+                type=neo4j_entity.get("type")
+            )
+            included_entities.append(entity)
     return included_entities + matched_entities
 
 
 def find_nearest_neighbors_by_entity_rank(
     entity_name: str,
-    all_entities: list[Entity],
-    all_relationships: list[Relationship],
+    all_entities: list[Entity] | None = None,
+    all_relationships: list[Relationship] | None = None,
     exclude_entity_names: list[str] | None = None,
     k: int | None = 10,
 ) -> list[Entity]:
     """Retrieve entities that have direct connections with the target entity, sorted by entity rank."""
-    if exclude_entity_names is None:
-        exclude_entity_names = []
-    entity_relationships = [
-        rel
-        for rel in all_relationships
-        if rel.source == entity_name or rel.target == entity_name
-    ]
-    source_entity_names = {rel.source for rel in entity_relationships}
-    target_entity_names = {rel.target for rel in entity_relationships}
-    related_entity_names = (source_entity_names.union(target_entity_names)).difference(
-        set(exclude_entity_names)
+    from graphrag.graphrag.graph.neo4j_client import get_connected_entities_neo4j
+    
+    # Query Neo4j for connected entities
+    connected_entities_data = get_connected_entities_neo4j(
+        entity_name=entity_name,
+        exclude_entity_names=exclude_entity_names,
+        k=k
     )
-    top_relations = [
-        entity for entity in all_entities if entity.title in related_entity_names
+    
+    # Convert to Entity objects
+    connected_entities = [
+        Entity(
+            id=entity_data.get("id", ""),
+            title=entity_data.get("name", ""),
+            type=entity_data.get("type"),
+            rank=entity_data.get("rank")
+        )
+        for entity_data in connected_entities_data
     ]
-    top_relations.sort(key=lambda x: x.rank if x.rank else 0, reverse=True)
-    if k:
-        return top_relations[:k]
-    return top_relations
+    
+    return connected_entities

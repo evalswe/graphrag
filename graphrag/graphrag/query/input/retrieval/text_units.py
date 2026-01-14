@@ -12,91 +12,38 @@ from graphrag.data_model.text_unit import TextUnit
 
 
 def _get_documents_by_entity_neo4j(entity_name: str) -> list[dict[str, Any]]:
-    """
-    EXPERIMENTAL POC: Get documents mentioning an entity from Neo4j.
-    
-    This is an internal helper that attempts to use Neo4j for entity→document
-    relationship lookup. Falls back to empty list if Neo4j is unavailable.
-    
-    Parameters
-    ----------
-    entity_name : str
-        Name of the entity
-        
-    Returns
-    -------
-    list[dict]
-        List of document dicts with keys: id, title, source
-        Returns empty list if Neo4j is unavailable
-    """
-    try:
-        from graphrag.graphrag.graph.neo4j_client import get_documents_by_entity_neo4j as neo4j_func
-        return neo4j_func(entity_name)
-    except Exception:
-        return []
+    """Get documents mentioning an entity from Neo4j."""
+    from graphrag.graphrag.graph.neo4j_client import get_documents_by_entity_neo4j as neo4j_func
+    return neo4j_func(entity_name)
 
 
 def get_candidate_text_units(
     selected_entities: list[Entity],
     text_units: list[TextUnit],
 ) -> pd.DataFrame:
-    """
-    Get all text units that are associated to selected entities.
+    """Get all text units that are associated to selected entities.
     
-    EXPERIMENTAL POC: If Neo4j is enabled and at least one entity is provided,
-    attempts to use Neo4j for entity→document relationship lookup for the first entity.
-    Falls back to existing dataframe-based logic if Neo4j is unavailable.
+    Note: Currently returns a DataFrame. Future optimization: consider operating
+    directly on Neo4j without converting to dataframes to reduce memory usage.
     """
-    # EXPERIMENTAL POC: Try Neo4j for entity→document lookup if enabled
-    # Only use Neo4j for the first entity to keep the change minimal
-    if selected_entities:
-        first_entity = selected_entities[0]
-        if first_entity.title:
-            neo4j_docs = _get_documents_by_entity_neo4j(first_entity.title)
-            if neo4j_docs:
-                # Convert Neo4j documents to TextUnit-like objects
-                # EXPERIMENTAL: Use document text from Neo4j
-                neo4j_text_units = []
-                for doc in neo4j_docs:
-                    # Create a TextUnit from Neo4j document data
-                    # Use document text field (or fallback to source/title)
-                    doc_text = doc.get("text", "") or doc.get("source", "") or doc.get("title", "")
-                    text_unit = TextUnit(
-                        id=doc.get("id", ""),
-                        short_id=doc.get("id", ""),
-                        text=doc_text,
-                        document_ids=[doc.get("id", "")]
-                    )
-                    neo4j_text_units.append(text_unit)
-                
-                # Convert to dataframe
-                if neo4j_text_units:
-                    neo4j_df = to_text_unit_dataframe(neo4j_text_units)
-                    # For remaining entities, use dataframe logic and merge results
-                    if len(selected_entities) > 1:
-                        remaining_entities = selected_entities[1:]
-                        selected_text_ids = [
-                            entity.text_unit_ids 
-                            for entity in remaining_entities 
-                            if entity.text_unit_ids
-                        ]
-                        selected_text_ids = [item for sublist in selected_text_ids for item in sublist]
-                        selected_text_units = [
-                            unit for unit in text_units 
-                            if unit.id in selected_text_ids
-                        ]
-                        remaining_df = to_text_unit_dataframe(selected_text_units)
-                        # Merge dataframes
-                        return pd.concat([neo4j_df, remaining_df], ignore_index=True)
-                    return neo4j_df
+    neo4j_text_units = []
+    for entity in selected_entities:
+        if entity.title:
+            neo4j_docs = _get_documents_by_entity_neo4j(entity.title)
+            for doc in neo4j_docs:
+                doc_text = doc.get("text", "") or doc.get("source", "") or doc.get("title", "")
+                text_unit = TextUnit(
+                    id=doc.get("id", ""),
+                    short_id=doc.get("id", ""),
+                    text=doc_text,
+                    document_ids=[doc.get("id", "")]
+                )
+                neo4j_text_units.append(text_unit)
     
-    # Fallback to existing dataframe-based logic
-    selected_text_ids = [
-        entity.text_unit_ids for entity in selected_entities if entity.text_unit_ids
-    ]
-    selected_text_ids = [item for sublist in selected_text_ids for item in sublist]
-    selected_text_units = [unit for unit in text_units if unit.id in selected_text_ids]
-    return to_text_unit_dataframe(selected_text_units)
+    if neo4j_text_units:
+        return to_text_unit_dataframe(neo4j_text_units)
+    
+    return pd.DataFrame()
 
 
 def to_text_unit_dataframe(text_units: list[TextUnit]) -> pd.DataFrame:

@@ -9,7 +9,11 @@ from typing import Any, cast
 
 from graphrag.callbacks.llm_callbacks import BaseLLMCallback
 from graphrag.language_model.protocol.base import ChatModel
-from graphrag.prompts.query.question_gen_system_prompt import QUESTION_SYSTEM_PROMPT
+
+try:
+    from graphrag.prompts.query.question_gen_system_prompt import QUESTION_SYSTEM_PROMPT
+except ImportError:
+    QUESTION_SYSTEM_PROMPT = ""
 from graphrag.query.context_builder.builders import (
     ContextBuilderResult,
     LocalContextBuilder,

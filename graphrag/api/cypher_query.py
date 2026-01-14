@@ -7,26 +7,20 @@ import asyncio
 import logging
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from graphrag.config.models.graph_rag_config import GraphRagConfig
+from graphrag.graphrag.graph.neo4j_client import run_cypher
 
-try:
-    from graphrag.graphrag.graph.neo4j_client import run_cypher
-    NEO4J_AVAILABLE = True
-except ImportError:
-    NEO4J_AVAILABLE = False
+logger = logging.getLogger(__name__)
 
 
 def query_cypher(query: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """Execute an arbitrary Cypher query against Neo4j."""
-    if not NEO4J_AVAILABLE:
-        logger.warning("Neo4j not available. Install with: pip install neo4j")
-        return []
     return run_cypher(query, params)
 
 
 async def query_with_natural_language_async(
     question: str,
-    config: Any,
+    config: GraphRagConfig,
     model_id: str | None = None,
     execute: bool = True,
 ) -> tuple[str, list[dict[str, Any]]]:
@@ -57,7 +51,7 @@ async def query_with_natural_language_async(
     
     # Execute if requested
     results = []
-    if execute and NEO4J_AVAILABLE:
+    if execute:
         results = run_cypher(cypher_query)
     
     return cypher_query, results
@@ -65,7 +59,7 @@ async def query_with_natural_language_async(
 
 def query_with_natural_language(
     question: str,
-    config: Any,
+    config: GraphRagConfig,
     model_id: str | None = None,
     execute: bool = True,
 ) -> tuple[str, list[dict[str, Any]]]:
@@ -93,7 +87,7 @@ def query_with_natural_language(
 
 async def generate_cypher_async(
     question: str,
-    config: Any,
+    config: GraphRagConfig,
     model_id: str | None = None,
     schema: dict[str, Any] | None = None,
 ) -> str:
@@ -163,12 +157,12 @@ async def generate_cypher_async(
     except Exception as e:
         logger.error(f"Error generating Cypher query: {e}")
         # Return a safe fallback query
-        return f"// Error generating query: {e}\nMATCH (e:Entity) RETURN e LIMIT 10"
+        return f"// Error generating query: {e}\nMATCH (e:Entity) RETURN e"
 
 
 def generate_cypher(
     question: str,
-    config: Any | None = None,
+    config: GraphRagConfig,
     model_id: str | None = None,
     schema: dict[str, Any] | None = None,
 ) -> str:
@@ -179,7 +173,7 @@ def generate_cypher(
     ----------
     question : str
         Natural language question to convert to Cypher
-    config : GraphRagConfig, optional
+    config : GraphRagConfig
         GraphRAG configuration object
     model_id : str, optional
         Model ID to use (defaults to default_chat_model)
@@ -191,10 +185,6 @@ def generate_cypher(
     str
         Generated Cypher query string
     """
-    if config is None:
-        logger.warning("No config provided. Returning template query.")
-        return f"// Generated query for: {question}\nMATCH (e:Entity) RETURN e LIMIT 10"
-    
     return asyncio.run(generate_cypher_async(question, config, model_id, schema))
 
 
@@ -218,10 +208,10 @@ def _build_text_to_cypher_prompt(question: str, schema: dict[str, Any]) -> str:
     examples = """
 ## Example Queries:
 
-1. "Find all entities" → `MATCH (e:Entity) RETURN e LIMIT 10`
+1. "Find all entities" → `MATCH (e:Entity) RETURN e`
 2. "Find documents mentioning Microsoft" → `MATCH (d:Document)-[:MENTIONS]->(e:Entity {name: 'Microsoft'}) RETURN d`
 3. "Find entities related to Microsoft" → `MATCH (e1:Entity {name: 'Microsoft'})-[:RELATES_TO]->(e2:Entity) RETURN e2`
-4. "Find all communities" → `MATCH (c:Community) RETURN c LIMIT 10`
+4. "Find all communities" → `MATCH (c:Community) RETURN c`
 """
     
     prompt = f"""You are a Cypher query expert. Generate a Cypher query for Neo4j based on the user's question.
@@ -235,7 +225,6 @@ def _build_text_to_cypher_prompt(question: str, schema: dict[str, Any]) -> str:
 - Generate ONLY the Cypher query, no explanations
 - Use proper Cypher syntax
 - Return only relevant properties (id, name, text, etc.)
-- Use LIMIT when appropriate to avoid large result sets
 - Match the node labels and relationship types exactly as shown in the schema
 
 ## User Question:
@@ -248,9 +237,6 @@ def _build_text_to_cypher_prompt(question: str, schema: dict[str, Any]) -> str:
 
 def get_cypher_schema() -> dict[str, Any]:
     """Get Neo4j schema information for query generation."""
-    if not NEO4J_AVAILABLE:
-        return {"node_labels": [], "relationship_types": [], "properties": {}}
-    
     try:
         results = run_cypher("CALL db.schema.visualization() YIELD nodes, relationships RETURN nodes, relationships")
         if results:

@@ -9,6 +9,7 @@ It leverages the LLMFactory for instantiation.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from typing_extensions import Self
@@ -17,6 +18,8 @@ from graphrag.language_model.factory import ModelFactory
 
 if TYPE_CHECKING:
     from graphrag.language_model.protocol.base import ChatModel, EmbeddingModel
+
+logger = logging.getLogger(__name__)
 
 
 class ModelManager:
@@ -116,6 +119,16 @@ class ModelManager:
             **chat_kwargs: Additional parameters for instantiation.
         """
         if name not in self.chat_models:
+            # Extract provider and model info for logging
+            config = chat_kwargs.get("config")
+            if config:
+                provider = getattr(config, "model_provider", "unknown")
+                model = getattr(config, "model", "unknown")
+                logger.info(
+                    "Using chat model: provider=%s, model=%s",
+                    provider,
+                    model,
+                )
             return self.register_chat(name, model_type, **chat_kwargs)
         return self.chat_models[name]
 
@@ -133,6 +146,16 @@ class ModelManager:
             **embedding_kwargs: Additional parameters for instantiation.
         """
         if name not in self.embedding_models:
+            # Extract provider and model info for logging
+            config = embedding_kwargs.get("config")
+            if config:
+                provider = getattr(config, "model_provider", "unknown")
+                model = getattr(config, "model", "unknown")
+                logger.info(
+                    "Using embedding model: provider=%s, model=%s",
+                    provider,
+                    model,
+                )
             return self.register_embedding(name, model_type, **embedding_kwargs)
         return self.embedding_models[name]
 
