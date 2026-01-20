@@ -9,6 +9,7 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 import logging
+import os
 from typing import Any
 
 import pandas as pd
@@ -22,6 +23,7 @@ from graphrag.index.run.utils import create_callback_chain
 from graphrag.index.typing.pipeline_run_result import PipelineRunResult
 from graphrag.index.workflows.factory import PipelineFactory
 from graphrag.logger.standard_logging import init_loggers
+from graphrag.extensions.neo4j_writer import sync_textunit_embeddings_to_neo4j
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +95,13 @@ async def build_index(
         logger.debug(str(output.result))
 
     workflow_callbacks.pipeline_end(outputs)
+    if any(output.workflow == "generate_text_embeddings" for output in outputs):
+        sync_textunit_embeddings_to_neo4j(
+            output_dir=config.output.base_dir,
+            uri=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+            user=os.getenv("NEO4J_USER", "neo4j"),
+            password=os.getenv("NEO4J_PASSWORD", "password"),
+        )
     return outputs
 
 

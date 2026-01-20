@@ -82,10 +82,11 @@ _update_workflows = [
     "update_clean_state",
 ]
 PipelineFactory.register_pipeline(
-    IndexingMethod.Standard, ["load_input_documents", *_standard_workflows]
+    IndexingMethod.Standard,
+    ["load_input_documents", *_standard_workflows, "export_to_neo4j_full"],
 )
 PipelineFactory.register_pipeline(
-    IndexingMethod.Fast, ["load_input_documents", *_fast_workflows]
+    IndexingMethod.Fast, ["load_input_documents", *_fast_workflows, "export_to_neo4j_full"]
 )
 PipelineFactory.register_pipeline(
     IndexingMethod.StandardUpdate,

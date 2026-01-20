@@ -33,6 +33,9 @@ from .extract_graph import (
 from .extract_graph_nlp import (
     run_workflow as run_extract_graph_nlp,
 )
+from .export_to_neo4j_full import (
+    run_workflow as run_export_to_neo4j_full,
+)
 from .finalize_graph import (
     run_workflow as run_finalize_graph,
 )
@@ -86,6 +89,7 @@ PipelineFactory.register_all({
     "create_final_text_units": run_create_final_text_units,
     "extract_graph_nlp": run_extract_graph_nlp,
     "extract_graph": run_extract_graph,
+    "export_to_neo4j_full": run_export_to_neo4j_full,
     "finalize_graph": run_finalize_graph,
     "generate_text_embeddings": run_generate_text_embeddings,
     "prune_graph": run_prune_graph,
