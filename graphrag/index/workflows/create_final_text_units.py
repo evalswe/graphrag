@@ -19,6 +19,8 @@ from graphrag.utils.storage import (
 
 logger = logging.getLogger(__name__)
 
+from graphrag.graphrag.graph.neo4j_client import write_text_units_to_neo4j
+
 
 async def run_workflow(
     config: GraphRagConfig,
@@ -47,6 +49,8 @@ async def run_workflow(
     )
 
     await write_table_to_storage(output, "text_units", context.output_storage)
+
+    write_text_units_to_neo4j(output)
 
     logger.info("Workflow completed: create_final_text_units")
     return WorkflowFunctionOutput(result=output)

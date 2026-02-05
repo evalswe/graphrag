@@ -7,29 +7,45 @@ import logging
 from pathlib import Path
 
 from graphrag.config.init_content import INIT_DOTENV, INIT_YAML
-from graphrag.prompts.index.community_report import (
-    COMMUNITY_REPORT_PROMPT,
-)
-from graphrag.prompts.index.community_report_text_units import (
-    COMMUNITY_REPORT_TEXT_PROMPT,
-)
-from graphrag.prompts.index.extract_claims import EXTRACT_CLAIMS_PROMPT
-from graphrag.prompts.index.extract_graph import GRAPH_EXTRACTION_PROMPT
-from graphrag.prompts.index.summarize_descriptions import SUMMARIZE_PROMPT
-from graphrag.prompts.query.basic_search_system_prompt import BASIC_SEARCH_SYSTEM_PROMPT
-from graphrag.prompts.query.drift_search_system_prompt import (
-    DRIFT_LOCAL_SYSTEM_PROMPT,
-    DRIFT_REDUCE_PROMPT,
-)
-from graphrag.prompts.query.global_search_knowledge_system_prompt import (
-    GENERAL_KNOWLEDGE_INSTRUCTION,
-)
-from graphrag.prompts.query.global_search_map_system_prompt import MAP_SYSTEM_PROMPT
-from graphrag.prompts.query.global_search_reduce_system_prompt import (
-    REDUCE_SYSTEM_PROMPT,
-)
-from graphrag.prompts.query.local_search_system_prompt import LOCAL_SEARCH_SYSTEM_PROMPT
-from graphrag.prompts.query.question_gen_system_prompt import QUESTION_SYSTEM_PROMPT
+
+try:
+    from graphrag.prompts.index.community_report import (
+        COMMUNITY_REPORT_PROMPT,
+    )
+    from graphrag.prompts.index.community_report_text_units import (
+        COMMUNITY_REPORT_TEXT_PROMPT,
+    )
+    from graphrag.prompts.index.extract_claims import EXTRACT_CLAIMS_PROMPT
+    from graphrag.prompts.index.extract_graph import GRAPH_EXTRACTION_PROMPT
+    from graphrag.prompts.index.summarize_descriptions import SUMMARIZE_PROMPT
+    from graphrag.prompts.query.basic_search_system_prompt import BASIC_SEARCH_SYSTEM_PROMPT
+    from graphrag.prompts.query.drift_search_system_prompt import (
+        DRIFT_LOCAL_SYSTEM_PROMPT,
+        DRIFT_REDUCE_PROMPT,
+    )
+    from graphrag.prompts.query.global_search_knowledge_system_prompt import (
+        GENERAL_KNOWLEDGE_INSTRUCTION,
+    )
+    from graphrag.prompts.query.global_search_map_system_prompt import MAP_SYSTEM_PROMPT
+    from graphrag.prompts.query.global_search_reduce_system_prompt import (
+        REDUCE_SYSTEM_PROMPT,
+    )
+    from graphrag.prompts.query.local_search_system_prompt import LOCAL_SEARCH_SYSTEM_PROMPT
+    from graphrag.prompts.query.question_gen_system_prompt import QUESTION_SYSTEM_PROMPT
+except ImportError:
+    COMMUNITY_REPORT_PROMPT = ""
+    COMMUNITY_REPORT_TEXT_PROMPT = ""
+    EXTRACT_CLAIMS_PROMPT = ""
+    GRAPH_EXTRACTION_PROMPT = ""
+    SUMMARIZE_PROMPT = ""
+    BASIC_SEARCH_SYSTEM_PROMPT = ""
+    DRIFT_LOCAL_SYSTEM_PROMPT = ""
+    DRIFT_REDUCE_PROMPT = ""
+    GENERAL_KNOWLEDGE_INSTRUCTION = ""
+    MAP_SYSTEM_PROMPT = ""
+    REDUCE_SYSTEM_PROMPT = ""
+    LOCAL_SEARCH_SYSTEM_PROMPT = ""
+    QUESTION_SYSTEM_PROMPT = ""
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +84,10 @@ def initialize_project_at(path: Path, force: bool) -> None:
         with dotenv.open("wb") as file:
             file.write(INIT_DOTENV.encode(encoding="utf-8", errors="strict"))
 
-    prompts_dir = root / "prompts"
+    # Write prompts to cache directory instead of root prompts/ directory
+    # This avoids cluttering the project root with generated files
+    cache_dir = root / "cache"
+    prompts_dir = cache_dir / "prompts"
     if not prompts_dir.exists():
         prompts_dir.mkdir(parents=True, exist_ok=True)
 

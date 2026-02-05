@@ -38,6 +38,8 @@ from graphrag.utils.storage import (
 
 logger = logging.getLogger(__name__)
 
+from graphrag.graphrag.graph.neo4j_client import write_community_reports_to_neo4j
+
 
 async def run_workflow(
     config: GraphRagConfig,
@@ -76,6 +78,8 @@ async def run_workflow(
     )
 
     await write_table_to_storage(output, "community_reports", context.output_storage)
+
+    write_community_reports_to_neo4j(output)
 
     logger.info("Workflow completed: create_community_reports")
     return WorkflowFunctionOutput(result=output)

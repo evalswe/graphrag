@@ -12,8 +12,7 @@ import graphrag.api as api
 from graphrag.callbacks.noop_query_callbacks import NoopQueryCallbacks
 from graphrag.config.load_config import load_config
 from graphrag.config.models.graph_rag_config import GraphRagConfig
-from graphrag.utils.api import create_storage_from_config
-from graphrag.utils.storage import load_table_from_storage, storage_has_table
+from graphrag.query.neo4j_loader import load_async_from_neo4j
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -474,12 +473,39 @@ def run_basic_search(
     return response, context_data
 
 
+async def _load_from_neo4j(name: str) -> "pd.DataFrame":
+    """
+    Load data from Neo4j.
+    
+    This is the primary data loading function for query operations.
+    All data is loaded from Neo4j.
+    
+    Parameters
+    ----------
+    name : str
+        Table name (e.g., "entities", "communities")
+        
+    Returns
+    -------
+    pd.DataFrame
+        Loaded dataframe from Neo4j
+    """
+    return await load_async_from_neo4j(name=name)
+
+
 def _resolve_output_files(
     config: GraphRagConfig,
     output_list: list[str],
     optional_list: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Read indexing output files to a dataframe dict."""
+    """Read indexing output files to a dataframe dict.
+    
+    Loads all data from Neo4j into memory as dataframes.
+    
+    Note: This currently loads all data into memory. Future optimization:
+    operate directly on Neo4j without loading full datasets to reduce memory load.
+    The main reason for Neo4j integration is to reduce memory load for large graphs.
+    """
     dataframe_dict = {}
 
     # Loading output files for multi-index search
@@ -488,13 +514,10 @@ def _resolve_output_files(
         dataframe_dict["num_indexes"] = len(config.outputs)
         dataframe_dict["index_names"] = config.outputs.keys()
         for output in config.outputs.values():
-            storage_obj = create_storage_from_config(output)
             for name in output_list:
                 if name not in dataframe_dict:
                     dataframe_dict[name] = []
-                df_value = asyncio.run(
-                    load_table_from_storage(name=name, storage=storage_obj)
-                )
+                df_value = asyncio.run(_load_from_neo4j(name))
                 dataframe_dict[name].append(df_value)
 
             # for optional output files, do not append if the dataframe does not exist
@@ -502,33 +525,28 @@ def _resolve_output_files(
                 for optional_file in optional_list:
                     if optional_file not in dataframe_dict:
                         dataframe_dict[optional_file] = []
-                    file_exists = asyncio.run(
-                        storage_has_table(optional_file, storage_obj)
-                    )
-                    if file_exists:
-                        df_value = asyncio.run(
-                            load_table_from_storage(
-                                name=optional_file, storage=storage_obj
-                            )
-                        )
-                        dataframe_dict[optional_file].append(df_value)
+                    try:
+                        df_value = asyncio.run(_load_from_neo4j(optional_file))
+                        if not df_value.empty:
+                            dataframe_dict[optional_file].append(df_value)
+                    except Exception:
+                        pass
         return dataframe_dict
     # Loading output files for single-index search
     dataframe_dict["multi-index"] = False
-    storage_obj = create_storage_from_config(config.output)
     for name in output_list:
-        df_value = asyncio.run(load_table_from_storage(name=name, storage=storage_obj))
+        df_value = asyncio.run(_load_from_neo4j(name))
         dataframe_dict[name] = df_value
 
     # for optional output files, set the dict entry to None instead of erroring out if it does not exist
     if optional_list:
         for optional_file in optional_list:
-            file_exists = asyncio.run(storage_has_table(optional_file, storage_obj))
-            if file_exists:
-                df_value = asyncio.run(
-                    load_table_from_storage(name=optional_file, storage=storage_obj)
-                )
-                dataframe_dict[optional_file] = df_value
-            else:
+            try:
+                df_value = asyncio.run(_load_from_neo4j(optional_file))
+                if not df_value.empty:
+                    dataframe_dict[optional_file] = df_value
+                else:
+                    dataframe_dict[optional_file] = None
+            except Exception:
                 dataframe_dict[optional_file] = None
     return dataframe_dict

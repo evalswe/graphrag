@@ -5,7 +5,7 @@
 
 import logging
 
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]
 
 from graphrag.config.models.embed_graph_config import EmbedGraphConfig
 from graphrag.config.models.graph_rag_config import GraphRagConfig
@@ -18,6 +18,11 @@ from graphrag.index.typing.workflow import WorkflowFunctionOutput
 from graphrag.utils.storage import load_table_from_storage, write_table_to_storage
 
 logger = logging.getLogger(__name__)
+
+from graphrag.graphrag.graph.neo4j_client import (
+    write_entities_to_neo4j,
+    write_relationships_to_neo4j,
+)
 
 
 async def run_workflow(
@@ -42,6 +47,9 @@ async def run_workflow(
     await write_table_to_storage(
         final_relationships, "relationships", context.output_storage
     )
+
+    write_entities_to_neo4j(final_entities)
+    write_relationships_to_neo4j(final_relationships)
 
     if config.snapshots.graphml:
         # todo: extract graphs at each level, and add in meta like descriptions

@@ -91,13 +91,13 @@ embed_text:
 
 extract_graph:
   model_id: {graphrag_config_defaults.extract_graph.model_id}
-  prompt: "prompts/extract_graph.txt"
+  prompt: "cache/prompts/extract_graph.txt"
   entity_types: [{",".join(graphrag_config_defaults.extract_graph.entity_types)}]
   max_gleanings: {graphrag_config_defaults.extract_graph.max_gleanings}
 
 summarize_descriptions:
   model_id: {graphrag_config_defaults.summarize_descriptions.model_id}
-  prompt: "prompts/summarize_descriptions.txt"
+  prompt: "cache/prompts/summarize_descriptions.txt"
   max_length: {graphrag_config_defaults.summarize_descriptions.max_length}
 
 extract_graph_nlp:
@@ -111,14 +111,14 @@ cluster_graph:
 extract_claims:
   enabled: false
   model_id: {graphrag_config_defaults.extract_claims.model_id}
-  prompt: "prompts/extract_claims.txt"
+  prompt: "cache/prompts/extract_claims.txt"
   description: "{graphrag_config_defaults.extract_claims.description}"
   max_gleanings: {graphrag_config_defaults.extract_claims.max_gleanings}
 
 community_reports:
   model_id: {graphrag_config_defaults.community_reports.model_id}
-  graph_prompt: "prompts/community_report_graph.txt"
-  text_prompt: "prompts/community_report_text.txt"
+  graph_prompt: "cache/prompts/community_report_graph.txt"
+  text_prompt: "cache/prompts/community_report_text.txt"
   max_length: {graphrag_config_defaults.community_reports.max_length}
   max_input_length: {graphrag_config_defaults.community_reports.max_input_length}
 
@@ -139,24 +139,24 @@ snapshots:
 local_search:
   chat_model_id: {graphrag_config_defaults.local_search.chat_model_id}
   embedding_model_id: {graphrag_config_defaults.local_search.embedding_model_id}
-  prompt: "prompts/local_search_system_prompt.txt"
+  prompt: "cache/prompts/local_search_system_prompt.txt"
 
 global_search:
   chat_model_id: {graphrag_config_defaults.global_search.chat_model_id}
-  map_prompt: "prompts/global_search_map_system_prompt.txt"
-  reduce_prompt: "prompts/global_search_reduce_system_prompt.txt"
-  knowledge_prompt: "prompts/global_search_knowledge_system_prompt.txt"
+  map_prompt: "cache/prompts/global_search_map_system_prompt.txt"
+  reduce_prompt: "cache/prompts/global_search_reduce_system_prompt.txt"
+  knowledge_prompt: "cache/prompts/global_search_knowledge_system_prompt.txt"
 
 drift_search:
   chat_model_id: {graphrag_config_defaults.drift_search.chat_model_id}
   embedding_model_id: {graphrag_config_defaults.drift_search.embedding_model_id}
-  prompt: "prompts/drift_search_system_prompt.txt"
-  reduce_prompt: "prompts/drift_search_reduce_prompt.txt"
+  prompt: "cache/prompts/drift_search_system_prompt.txt"
+  reduce_prompt: "cache/prompts/drift_search_reduce_prompt.txt"
 
 basic_search:
   chat_model_id: {graphrag_config_defaults.basic_search.chat_model_id}
   embedding_model_id: {graphrag_config_defaults.basic_search.embedding_model_id}
-  prompt: "prompts/basic_search_system_prompt.txt"
+  prompt: "cache/prompts/basic_search_system_prompt.txt"
 """
 
 INIT_DOTENV = """\

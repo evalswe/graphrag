@@ -27,6 +27,9 @@ from graphrag.language_model.providers.litellm.request_wrappers.with_rate_limite
 from graphrag.language_model.providers.litellm.request_wrappers.with_retries import (
     with_retries,
 )
+from graphrag.language_model.providers.litellm.runtime_fixes import (
+    apply_litellm_runtime_fixes,
+)
 from graphrag.language_model.providers.litellm.types import (
     AFixedModelEmbedding,
     FixedModelEmbedding,
@@ -37,6 +40,7 @@ if TYPE_CHECKING:
     from graphrag.config.models.language_model_config import LanguageModelConfig
 
 litellm.suppress_debug_info = True
+apply_litellm_runtime_fixes()
 
 
 def _create_base_embeddings(

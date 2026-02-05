@@ -137,8 +137,8 @@ def _run_index(
 
     _register_signal_handlers()
 
-    outputs = asyncio.run(
-        api.build_index(
+    async def _run_pipeline_with_cleanup():
+        outputs = await api.build_index(
             config=config,
             method=method,
             is_update_run=is_update_run,
@@ -146,7 +146,59 @@ def _run_index(
             callbacks=[ConsoleWorkflowCallbacks(verbose=verbose)],
             verbose=verbose,
         )
-    )
+        try:
+            from litellm.litellm_core_utils.logging_worker import (
+                GLOBAL_LOGGING_WORKER,
+            )
+            from litellm.llms.custom_httpx.async_client_cleanup import (
+                close_litellm_async_clients,
+            )
+
+            try:
+                await GLOBAL_LOGGING_WORKER.flush()
+            except asyncio.CancelledError:
+                # Skip flush if the loop is cancelling shutdown tasks.
+                pass
+
+            try:
+                await GLOBAL_LOGGING_WORKER.stop()
+            except asyncio.CancelledError:
+                pass
+
+            await close_litellm_async_clients()
+        except Exception:
+            # Avoid masking pipeline errors during shutdown.
+            pass
+        # Let transports finish closing before loop shutdown.
+        await asyncio.sleep(0)
+        return outputs
+
+    if sys.platform == "win32":
+        try:
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        except Exception:
+            pass
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        outputs = loop.run_until_complete(_run_pipeline_with_cleanup())
+    finally:
+        try:
+            pending = asyncio.all_tasks(loop)
+            for task in pending:
+                task.cancel()
+            if pending:
+                loop.run_until_complete(
+                    asyncio.gather(*pending, return_exceptions=True)
+                )
+            loop.run_until_complete(loop.shutdown_asyncgens())
+            loop.run_until_complete(loop.shutdown_default_executor())
+            loop.run_until_complete(asyncio.sleep(0))
+        except Exception:
+            pass
+        loop.close()
+        asyncio.set_event_loop(None)
     encountered_errors = any(
         output.errors and len(output.errors) > 0 for output in outputs
     )

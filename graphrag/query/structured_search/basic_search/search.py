@@ -10,9 +10,13 @@ from typing import Any
 
 from graphrag.callbacks.query_callbacks import QueryCallbacks
 from graphrag.language_model.protocol.base import ChatModel
-from graphrag.prompts.query.basic_search_system_prompt import (
-    BASIC_SEARCH_SYSTEM_PROMPT,
-)
+
+try:
+    from graphrag.prompts.query.basic_search_system_prompt import (
+        BASIC_SEARCH_SYSTEM_PROMPT,
+    )
+except ImportError:
+    BASIC_SEARCH_SYSTEM_PROMPT = ""
 from graphrag.query.context_builder.builders import BasicContextBuilder
 from graphrag.query.context_builder.conversation_history import ConversationHistory
 from graphrag.query.structured_search.base import BaseSearch, SearchResult

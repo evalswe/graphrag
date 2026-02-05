@@ -543,3 +543,79 @@ def _query_cli(
             )
         case _:
             raise ValueError(INVALID_METHOD_ERROR)
+
+
+@app.command("cypher")
+def _cypher_cli(
+    question: str = typer.Option(
+        ...,
+        "--question",
+        "-q",
+        help="Natural language question to convert to Cypher query",
+    ),
+    config: Path | None = typer.Option(
+        None,
+        "--config",
+        "-c",
+        help="The configuration to use.",
+        exists=True,
+        file_okay=True,
+        readable=True,
+        autocompletion=CONFIG_AUTOCOMPLETE,
+    ),
+    root: Path = typer.Option(
+        Path(),
+        "--root",
+        "-r",
+        help="The project root directory.",
+        exists=True,
+        dir_okay=True,
+        writable=True,
+        resolve_path=True,
+        autocompletion=ROOT_AUTOCOMPLETE,
+    ),
+    model_id: str = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="Model ID to use for text-to-cypher generation (defaults to default_chat_model)",
+    ),
+    execute: bool = typer.Option(
+        True,
+        "--execute/--no-execute",
+        help="Whether to execute the generated Cypher query",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Run with verbose logging.",
+    ),
+) -> None:
+    """Generate and execute Cypher queries from natural language (Text-to-Cypher)."""
+    import asyncio
+    from graphrag.api.cypher_query import query_with_natural_language_async
+    from graphrag.config.load_config import load_config
+    
+    root_path = root.resolve()
+    config_obj = load_config(root_path, config, {})
+    
+    if verbose:
+        import logging
+        logging.basicConfig(level=logging.DEBUG)
+    
+    print(f"Question: {question}")
+    print("Generating Cypher query...")
+    
+    cypher_query, results = asyncio.run(
+        query_with_natural_language_async(question, config_obj, model_id, execute)
+    )
+    
+    print(f"\nGenerated Cypher Query:\n{cypher_query}\n")
+    
+    if execute:
+        print(f"Results ({len(results)} records):")
+        for i, record in enumerate(results[:10], 1):  # Show first 10 results
+            print(f"  {i}. {record}")
+        if len(results) > 10:
+            print(f"  ... and {len(results) - 10} more records")
